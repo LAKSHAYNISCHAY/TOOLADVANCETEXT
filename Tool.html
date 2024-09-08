@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Text to JSON Converter</title>
+  <style>
+    body {
+      font-family: 'Arial', sans-serif;
+      background-color: #f0f8ff;
+      margin: 20px;
+    }
+    .container {
+      max-width: 800px;
+      margin: 0 auto;
+      background-color: #ffffff;
+      padding: 20px;
+      border-radius: 10px;
+      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    }
+    h1 {
+      text-align: center;
+      color: #333;
+      font-size: 2rem;
+    }
+    textarea {
+      width: 100%;
+      height: 200px;
+      padding: 10px;
+      border-radius: 5px;
+      border: 2px solid #ddd;
+      margin-top: 10px;
+      font-size: 1rem;
+    }
+    button {
+      display: inline-block;
+      margin: 20px auto;
+      padding: 10px 20px;
+      background-color: #28a745;
+      color: #fff;
+      border: none;
+      border-radius: 5px;
+      font-size: 1.2rem;
+      cursor: pointer;
+      text-align: center;
+      width: 100%;
+    }
+    button:hover {
+      background-color: #218838;
+    }
+    .output {
+      background-color: #f4f4f4;
+      padding: 10px;
+      border: 1px solid #ddd;
+      margin-top: 20px;
+      white-space: pre-wrap;
+      border-radius: 5px;
+    }
+    .error-message {
+      color: red;
+      font-size: 1rem;
+      margin-top: 10px;
+    }
+    .success-message {
+      color: green;
+      font-size: 1.1rem;
+      margin-top: 10px;
+    }
+    .processing-animation {
+      font-size: 1rem;
+      color: #007bff;
+      display: none;
+      margin-top: 10px;
+    }
+    .copy-button {
+      background-color: #ff9800;
+      color: white;
+      border: none;
+      padding: 10px;
+      border-radius: 5px;
+      cursor: pointer;
+      margin-top: 20px;
+      text-align: center;
+      display: block;
+      font-size: 1rem;
+      width: 100%;
+    }
+    .copy-button:hover {
+      background-color: #fb8c00;
+    }
+    /* Popup Message */
+    .popup {
+      display: none;
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background-color: #ffffff;
+      padding: 20px;
+      border-radius: 10px;
+      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+      z-index: 10;
+      text-align: center;
+    }
+    .popup-message {
+      font-size: 1.2rem;
+      color: #4caf50;
+    }
+    .popup button {
+      background-color: #4caf50;
+      color: white;
+      padding: 10px 20px;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+      margin-top: 10px;
+    }
+    .popup button:hover {
+      background-color: #45a049;
+    }
+    /* Overlay */
+    .overlay {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background-color: rgba(0, 0, 0, 0.5);
+      z-index: 5;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="container">
+    <h1>Text to JSON Converter</h1>
+
+    <label for="inputText">Paste your text:</label>
+    <textarea id="inputText" placeholder="Paste the text in the correct format"></textarea>
+    
+    <button onclick="convertTextToJSON()">Convert</button>
+
+    <p class="processing-animation" id="processingAnimation">Processing... Please wait.</p>
+    <p class="error-message" id="errorMessage"></p>
+    <p class="success-message" id="successMessage"></p>
+
+    <h2>Converted JSON:</h2>
+    <pre class="output" id="outputJSON"></pre>
+
+    <button class="copy-button" id="copyButton" onclick="copyToClipboard()">COPY ALL</button>
+
+  </div>
+
+  <!-- Popup Message -->
+  <div class="popup" id="popup">
+    <div class="popup-message">🎉 Your ready result! 💐</div>
+    <button onclick="closePopup()">Close</button>
+  </div>
+
+  <div class="overlay" id="overlay"></div>
+
+  <script>
+    function convertTextToJSON() {
+      const inputText = document.getElementById('inputText').value;
+      const lines = inputText.split('\n').filter(line => line.trim() !== '');
+
+      const errorMessage = document.getElementById('errorMessage');
+      const successMessage = document.getElementById('successMessage');
+      const processingAnimation = document.getElementById('processingAnimation');
+      const outputJSON = document.getElementById('outputJSON');
+      const copyButton = document.getElementById('copyButton');
+      
+      // Reset the UI
+      errorMessage.textContent = '';
+      successMessage.textContent = '';
+      outputJSON.textContent = '';
+      processingAnimation.style.display = 'block';
+
+      setTimeout(() => {
+        const questions = [];
+        let currentQuestion = null;
+        let currentOptions = {};
+        let formatError = false;
+
+        lines.forEach(line => {
+          if (line.startsWith('Question')) {
+            if (currentQuestion) {
+              currentQuestion.options = currentOptions;
+              questions.push(currentQuestion);
+            }
+            currentOptions = {};
+            const questionText = line.split(':')[1]?.trim();
+            if (!questionText) {
+              formatError = true;
+            }
+            currentQuestion = { question: questionText, options: {}, correctAnswer: "", explanation: "" };
+          } else if (line.includes('Options')) {
+            const optionsText = line.split(':')[1]?.trim();
+            const optionPairs = optionsText.match(/\([a-d]\)\s[^,]+/g);
+            if (optionPairs) {
+              optionPairs.forEach(option => {
+                const optionKey = option.charAt(1);
+                const optionValue = option.slice(3).trim();
+                currentOptions[optionKey] = optionValue;
+              });
+            } else {
+              formatError = true;
+            }
+          } else if (line.includes('Correct Answer')) {
+            const correctAnswer = line.split(':')[1]?.trim().charAt(1);
+            if (correctAnswer) {
+              currentQuestion.correctAnswer = correctAnswer;
+            } else {
+              formatError = true;
+            }
+          } else if (line.includes('Explanation')) {
+            const explanation = line.split(':')[1]?.trim();
+            if (explanation) {
+              currentQuestion.explanation = explanation;
+            } else {
+              formatError = true;
+            }
+          }
+        });
+
+        if (currentQuestion) {
+          currentQuestion.options = currentOptions;
+          questions.push(currentQuestion);
+        }
+
+        if (formatError) {
+          errorMessage.textContent = 'Error: Incorrect text format. Please check your input.';
+          processingAnimation.style.display = 'none';
+          return;
+        }
+
+        const jsonOutput = { questions };
+        outputJSON.textContent = JSON.stringify(jsonOutput, null, 2);
+        successMessage.textContent = 'Conversion successful!';
+        processingAnimation.style.display = 'none';
+
+        // Show the popup message
+        showPopup();
+      }, 2000); // Simulate a 2-second processing delay
+    }
+
+    function copyToClipboard() {
+      const outputJSON = document.getElementById('outputJSON');
+      const textToCopy = outputJSON.textContent;
+      navigator.clipboard.writeText(textToCopy).then(() => {
+        alert('Copied to clipboard!');
+      }).catch(err => {
+        alert('Error copying to clipboard');
+      });
+    }
+
+    function showPopup() {
+      const popup = document.getElementById('popup');
+      const overlay = document.getElementById('overlay');
+      popup.style.display = 'block';
+      overlay.style.display = 'block';
+    }
+
+    function closePopup() {
+      const popup = document.getElementById('popup');
+      const overlay = document.getElementById('overlay');
+      popup.style.display = 'none';
+      overlay.style.display = 'none';
+    }
+  </script>
+
+</body>
+</html>
