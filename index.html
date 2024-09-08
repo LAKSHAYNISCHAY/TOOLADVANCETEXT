@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Text to JSON Converter</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 20px;
+    }
+    textarea {
+      width: 100%;
+      height: 200px;
+    }
+    .output {
+      background-color: #f4f4f4;
+      padding: 10px;
+      border: 1px solid #ddd;
+      margin-top: 20px;
+      white-space: pre-wrap;
+    }
+    button {
+      margin-top: 10px;
+      padding: 10px 20px;
+      background-color: #28a745;
+      color: white;
+      border: none;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+
+  <h1>Text to JSON Converter</h1>
+  
+  <label for="inputText">Paste your text:</label><br>
+  <textarea id="inputText"></textarea><br>
+  <button onclick="convertTextToJSON()">Convert</button>
+
+  <h2>Converted JSON:</h2>
+  <pre class="output" id="outputJSON"></pre>
+
+  <script>
+    function convertTextToJSON() {
+      const inputText = document.getElementById('inputText').value;
+      const lines = inputText.split('\n').filter(line => line.trim() !== '');
+      
+      const questions = [];
+      let currentQuestion = null;
+      let currentOptions = {};
+      
+      lines.forEach(line => {
+        if (line.startsWith('Question')) {
+          if (currentQuestion) {
+            currentQuestion.options = currentOptions;
+            questions.push(currentQuestion);
+          }
+          currentOptions = {};
+          const questionText = line.split(':')[1].trim();
+          currentQuestion = { question: questionText, options: {}, correctAnswer: "", explanation: "" };
+        } else if (line.includes('Options')) {
+          const optionsText = line.split(':')[1].trim();
+          const optionPairs = optionsText.match(/\([a-d]\)\s[^,]+/g);
+          optionPairs.forEach(option => {
+            const optionKey = option.charAt(1);
+            const optionValue = option.slice(3).trim();
+            currentOptions[optionKey] = optionValue;
+          });
+        } else if (line.includes('Correct Answer')) {
+          const correctAnswer = line.split(':')[1].trim().charAt(1);
+          currentQuestion.correctAnswer = correctAnswer;
+        } else if (line.includes('Explanation')) {
+          const explanation = line.split(':')[1].trim();
+          currentQuestion.explanation = explanation;
+        }
+      });
+
+      // Add the last question
+      if (currentQuestion) {
+        currentQuestion.options = currentOptions;
+        questions.push(currentQuestion);
+      }
+
+      const jsonOutput = { questions };
+      document.getElementById('outputJSON').textContent = JSON.stringify(jsonOutput, null, 2);
+    }
+  </script>
+
+</body>
+</html>
